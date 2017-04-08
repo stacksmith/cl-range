@@ -3,7 +3,7 @@
   :author "stacksmith"
   :license "bsd"
   :serial t
-  :depends-on (#:doubletree
+  :depends-on (#:cl-doubletree
 	       )
   :components ((:file "package")
                (:file "range")))
