@@ -94,13 +94,15 @@
 	   new
 	   (make-instance 'range :width (- wold off))))))
   (format t "widening ~A by ~A" (tree:dad new) (width new))
-  (widen (tree:dad new):by (width new)))
+  (widen (tree:dad new):by (width new))
+  new)
 
 (defun insert (old new off)
   (insert-into-pad
-   (if (obj old)
-       (tree:link-as-child-of old 
-	(make-instance 'range :width (width old))))
+   (if (obj old); if inserting into a real range,
+       (tree:link-as-child-of; create a child pad range
+	old (make-instance 'range :width (width old)))
+       old)
    new off))
 
 (defun delete (range)
@@ -112,7 +114,7 @@
 ;;
 #||(defclass bi ()
   ((range  :accessor range  :initarg :range  :initform nil)
-   (offset :accessor offset :initarg :offset :initform 0 :type fixnum)
+  (offset :accessor offset :initarg :offset :initform 0 :type fixnum)
    (pos    :accessor pos    :initarg :pos    :initform 0 :type fixnum)))
 
 
@@ -127,7 +129,7 @@
 		     (progn (setf remaining q) nil)))))
       (prim range))))
 
-||#
+
 (defun bisect (range remaining)
   (declare (type fixnum remaining))
 					; (declare (optimize (speed 3) (safety 0) (debug 0)))
@@ -140,20 +142,33 @@
 	      (return-from bisect (values range remaining)))
 	    (bisect (tree:next-node range) q))
 	t)))
+||#
+
+;; Bisections are pretty obvious, except when it comes to 0-width ranges.
+;; First of all, the root 0-range with a 0 offset should bisect to itself!
+;; Secondly, a 0-width bisection should be found when nailed on the head,
+;; and take precedence over the next range.  Ordinarily, when width=remaining, the
 
 (defun bisect (range remaining)
   (declare (type fixnum remaining))
 					; (declare (optimize (speed 3) (safety 0) (debug 0)))
-  (labels ((prim (range remaining)
-	     (format t "BISECTING ~A~&" range)
-	     (when range
+  (labels
+      ((prim (range remaining)
+	 (when range; if null, too far; just return nil
+	   (format t "BISECTING |~A| ~A ~&" range remaining)
+	   ;; Zero offset means definitely this node! But do deep in case child
+	   (if (zerop remaining)
+	       (return-from bisect (values (tree:go-deep range) 0))
 	       (let ((q (- remaining  (the fixnum (width range)))))
 		 (format t "...~A ~A~&" range q)
-		 (if (minusp q)
-		     (unless (prim (tree:first-node range) remaining)
+		 (if (minusp q) ;;negative means inside our range...
+		     (unless (prim (tree:first-node range) remaining) ;maybe child?
 		       (return-from bisect (values range remaining)))
-		     (prim (tree:next-node range) q))
-		 ))))
+		     ;; zero gets sent to select next node no matter what.
+		     ;; positive means more to go.
+		     (prim (tree:next-node range) q)
+		     ))))))
+;;    (if (zerop remaining)	(values range 0))
     (prim range remaining)))
 
 
@@ -164,8 +179,8 @@
 	    i 0))
   (values range i))
 
-(defun q (range)
-  (print (tree:traverse-next range)))
+ (defun q (range)
+     (print (tree:traverse-next range)))
 
 (defun -insert-char (range pos)
   (widen (range-bisect range pos)))
@@ -174,8 +189,8 @@
   (narrow (range-bisect range pos))
 )
 
-
-
+;;-------------------------------
+(defparameter *r* (tree:make-root (make-instance 'range )))
   
 
 #||
